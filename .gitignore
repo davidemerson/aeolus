@@ -1,0 +1,48 @@
+# Node / TypeScript
+node_modules/
+dist/
+build/
+# electron-builder's buildResources directory is source, not output: the app
+# icon lives there, and a bare `build/` rule swallows it.
+!apps/electron/build/
+.turbo/
+*.tsbuildinfo
+
+# Tests
+coverage/
+playwright-report/
+test-results/
+.playwright/
+*.trace
+.stack-state.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Electron build artifacts
+apps/electron/dist-electron/
+apps/electron/release/
+
+# scripts/compose-smoke.mjs writes here
+.compose-smoke/

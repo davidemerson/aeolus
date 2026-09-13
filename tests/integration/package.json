@@ -1,0 +1,37 @@
+{
+  "name": "@aeolus/tests-integration",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1030.0",
+    "@aws-sdk/s3-request-presigner": "^3.1030.0",
+    "@aeolus/compile-worker": "workspace:*",
+    "@aeolus/crdt": "workspace:*",
+    "@aeolus/db": "workspace:*",
+    "@aeolus/ws": "workspace:*",
+    "@fastify/cookie": "^11.0.2",
+    "@testcontainers/postgresql": "^11.14.0",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.12.4",
+    "lib0": "^0.2.99",
+    "pg": "^8.13.1",
+    "testcontainers": "^11.14.0",
+    "ws": "^8.21.3",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.21"
+  },
+  "devDependencies": {
+    "@aeolus/api": "workspace:*",
+    "@aeolus/auth": "workspace:*",
+    "@types/pg": "^8.11.10",
+    "@types/ws": "^8.5.12",
+    "pg-boss": "^10.4.2"
+  }
+}

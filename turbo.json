@@ -1,0 +1,37 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "tsconfig.base.json",
+    "eslint.config.mjs",
+    ".prettierrc.json",
+    ".npmrc",
+    ".nvmrc",
+    "pnpm-lock.yaml"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "!**/CHANGELOG*"]
+    },
+    "lint": {
+      "outputs": [],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "!**/CHANGELOG*"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": [],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "!**/CHANGELOG*"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "!**/CHANGELOG*"],
+      "env": ["AEOLUS_TECTONIC_BIN", "AEOLUS_TYPST_BIN", "AEOLUS_TECTONIC_CACHE_DIR"]
+    },
+    "e2e": {
+      "dependsOn": ["^build"],
+      "cache": false
+    }
+  }
+}

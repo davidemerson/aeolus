@@ -1,0 +1,81 @@
+name: Install Tectonic + Typst
+description: >
+  Install Tectonic and Typst at pinned versions, with sha256
+  verification and an actions/cache layer keyed on the pinned
+  versions so successive jobs in the same run (or across runs on
+  the same self-hosted runner image) skip the curl + tar work.
+  Used by both the verify and e2e jobs in CI.
+
+inputs:
+  tectonic-version:
+    description: Pinned Tectonic version (matches Dockerfile.worker)
+    required: false
+    default: '0.15.0'
+  typst-version:
+    description: Pinned Typst version (matches Dockerfile.worker)
+    required: false
+    default: '0.12.0'
+  tectonic-sha256:
+    description: SHA256 of the tectonic linux-musl tarball
+    required: false
+    default: 'dfb82876f2986862996e564fa507a9e576e0c1e3bee63c2c1bd677c2543e6407'
+  typst-sha256:
+    description: SHA256 of the typst linux-musl tarball
+    required: false
+    default: '605130a770ebd59a4a579673079cb913a13e75985231657a71d6239a57539ec3'
+
+runs:
+  using: composite
+  steps:
+    - name: Restore Tectonic + Typst cache
+      id: bin-cache
+      uses: actions/cache@v6
+      with:
+        path: |
+          /usr/local/bin/tectonic
+          /usr/local/bin/typst
+        key: tectonic-${{ inputs.tectonic-version }}-typst-${{ inputs.typst-version }}-${{ runner.os }}
+
+    # The binary alone is not enough: the first compile of a job
+    # downloads the full LaTeX package bundle from the public relay
+    # into TECTONIC_CACHE_DIR, which routinely exceeded 30s on
+    # GitHub runners and made the suite's first compile
+    # (auth-and-edit) a recurring flake. Both the integration
+    # helpers and the E2E global-setup default the cache dir to
+    # $TMPDIR/aeolus-tectonic-cache — cache that too, keyed on the
+    # tectonic version (the bundle a version resolves is stable).
+    - name: Restore Tectonic bundle cache
+      uses: actions/cache@v6
+      with:
+        path: /tmp/aeolus-tectonic-cache
+        key: tectonic-bundle-${{ inputs.tectonic-version }}-${{ runner.os }}
+
+    - name: Download + verify + install
+      if: steps.bin-cache.outputs.cache-hit != 'true'
+      env:
+        TECTONIC_VERSION: ${{ inputs.tectonic-version }}
+        TYPST_VERSION: ${{ inputs.typst-version }}
+        TECTONIC_SHA256: ${{ inputs.tectonic-sha256 }}
+        TYPST_SHA256: ${{ inputs.typst-sha256 }}
+      shell: bash
+      run: |
+        set -eux
+        curl -fsSL -o /tmp/tectonic.tar.gz \
+          "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+        echo "${TECTONIC_SHA256}  /tmp/tectonic.tar.gz" | sha256sum -c -
+        tar -xzf /tmp/tectonic.tar.gz -C /tmp
+        sudo install -m 0755 /tmp/tectonic /usr/local/bin/tectonic
+
+        curl -fsSL -o /tmp/typst.tar.xz \
+          "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz"
+        echo "${TYPST_SHA256}  /tmp/typst.tar.xz" | sha256sum -c -
+        tar -xJf /tmp/typst.tar.xz -C /tmp
+        sudo install -m 0755 /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
+
+    - name: Confirm + export env
+      shell: bash
+      run: |
+        tectonic --version
+        typst --version
+        echo "AEOLUS_TECTONIC_BIN=/usr/local/bin/tectonic" >> "$GITHUB_ENV"
+        echo "AEOLUS_TYPST_BIN=/usr/local/bin/typst"       >> "$GITHUB_ENV"

@@ -1,0 +1,231 @@
+# Aeolus, whole. `docker compose up -d` and the app is at http://localhost:8080.
+#
+# Six services, and each one is here because the app does not work without it:
+#
+#   caddy    One origin in front of everything. The browser talks to exactly
+#            one host and port; Caddy routes /ws to the websocket process and
+#            everything else to the api. That is what makes the session cookie
+#            reach both — split them across two hostnames and the WebSocket
+#            upgrade carries no cookie, so every keystroke is silently dropped.
+#   api      The REST API and the single-page app.
+#   ws       The collaborative editing session for each open document.
+#   worker   Runs Tectonic and Typst. Compiles are queued, not synchronous.
+#   postgres Documents, users, sessions, the job queue.
+#   minio    Object storage for document snapshots and uploaded assets.
+#
+# MinIO is not optional. Each process keeps its own in-memory blob store when
+# no bucket is configured, and they cannot see each other's: the api writes a
+# snapshot, prunes the updates it subsumes, and the ws process then reads a
+# document that has lost everything before the snapshot. Documents come back
+# truncated with nothing in any log. Point AEOLUS_S3_BUCKET at a real bucket —
+# this one, or your own S3 — and never at nothing.
+#
+# Configuration is in .env; copy .env.example and read the comments there.
+# The only value you must change before a real deployment is
+# AEOLUS_COOKIE_SECRET.
+
+name: aeolus
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      ws:
+        condition: service_started
+    ports:
+      # The only published port. Everything else talks over the private
+      # network, which is why the database and MinIO are not reachable from
+      # your machine at all.
+      - '${AEOLUS_PORT:-8080}:8080'
+      # For a real hostname with automatic HTTPS, publish 80 and 443 instead
+      # and set AEOLUS_SITE_ADDRESS to that hostname. See Caddyfile.
+      # - '80:80'
+      # - '443:443'
+    environment:
+      AEOLUS_SITE_ADDRESS: ${AEOLUS_SITE_ADDRESS:-:8080}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: aeolus-api:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://aeolus:${POSTGRES_PASSWORD:-aeolus}@postgres:5432/aeolus
+      AEOLUS_DB_SSL: disable
+      AEOLUS_COOKIE_SECRET: ${AEOLUS_COOKIE_SECRET:?set AEOLUS_COOKIE_SECRET in .env}
+      AEOLUS_COOKIE_SECURE: ${AEOLUS_COOKIE_SECURE:-0}
+      AEOLUS_PUBLIC_BASE_URL: ${AEOLUS_PUBLIC_BASE_URL:-http://localhost:8080}
+      AEOLUS_BOOTSTRAP_ADMIN_EMAIL: ${AEOLUS_BOOTSTRAP_ADMIN_EMAIL:-admin@localhost}
+      # Caddy is the only thing that can reach the api, and it is on this
+      # network, so its address is the one x-forwarded-for hop worth trusting.
+      # Without this every caller looks like Caddy and the sign-in rate limit
+      # is one bucket shared by everyone.
+      AEOLUS_TRUST_PROXY: uniquelocal
+      # Same origin as the app, so the SPA's WebSocket URL is just this host
+      # with a /ws prefix. Nothing to configure.
+      AEOLUS_WS_INTERNAL_URL: http://ws:8080
+      AEOLUS_S3_BUCKET: ${AEOLUS_S3_BUCKET:-aeolus}
+      AWS_S3_ENDPOINT: http://minio:9000
+      AWS_S3_FORCE_PATH_STYLE: '1'
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Without a key pair the AWS SDK goes looking for instance metadata and
+      # hangs for a minute before failing. These are MinIO's credentials, not
+      # anybody's AWS account.
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-aeolus}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-aeolus-dev-secret}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+    # The api gives itself 25 seconds to finish in-flight requests on SIGTERM;
+    # Compose's default grace is 10, which would kill it in the middle of one.
+    stop_grace_period: 40s
+
+  ws:
+    build:
+      context: .
+      dockerfile: Dockerfile.ws
+    image: aeolus-ws:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://aeolus:${POSTGRES_PASSWORD:-aeolus}@postgres:5432/aeolus
+      AEOLUS_DB_SSL: disable
+      # Must be the same value the api uses: the session cookie is signed with
+      # it, and ws verifies that signature on every upgrade.
+      AEOLUS_COOKIE_SECRET: ${AEOLUS_COOKIE_SECRET:?set AEOLUS_COOKIE_SECRET in .env}
+      # Origin check on cookie-authenticated upgrades. Unset means any origin
+      # may connect with a valid cookie.
+      AEOLUS_PUBLIC_BASE_URL: ${AEOLUS_PUBLIC_BASE_URL:-http://localhost:8080}
+      AEOLUS_S3_BUCKET: ${AEOLUS_S3_BUCKET:-aeolus}
+      AWS_S3_ENDPOINT: http://minio:9000
+      AWS_S3_FORCE_PATH_STYLE: '1'
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-aeolus}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-aeolus-dev-secret}
+    # Same as the api: it persists what open editors have in flight before it
+    # goes, and needs longer than Compose's default ten seconds to do it.
+    stop_grace_period: 40s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    image: aeolus-worker:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://aeolus:${POSTGRES_PASSWORD:-aeolus}@postgres:5432/aeolus
+      AEOLUS_DB_SSL: disable
+      AEOLUS_S3_BUCKET: ${AEOLUS_S3_BUCKET:-aeolus}
+      AWS_S3_ENDPOINT: http://minio:9000
+      AWS_S3_FORCE_PATH_STYLE: '1'
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-aeolus}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-aeolus-dev-secret}
+      # `audit` logs what Landlock would have blocked and blocks nothing.
+      # `enforce` is what you want in production, and it fails closed: on a
+      # kernel or container runtime without Landlock every compile fails. The
+      # worker prints which one applies at boot — check that line before
+      # switching.
+      AEOLUS_SANDBOX_MODE: ${AEOLUS_SANDBOX_MODE:-audit}
+    volumes:
+      # Tectonic downloads a TeX bundle on first use. Without a volume it
+      # re-downloads several hundred megabytes every time the container is
+      # recreated, and the first compile after every recreate takes minutes.
+      # The path is the image's TECTONIC_CACHE_DIR and XDG_CACHE_HOME, both
+      # of which Dockerfile.worker sets to this directory and chowns to the
+      # unprivileged `compiler` user that runs the engine. Mount it anywhere
+      # else and the volume is inert: the cache still works, in the container
+      # layer, and evaporates with the container.
+      - tectonic-cache:/opt/tectonic-cache
+    # The worker drains in-flight compiles for up to 25 seconds on SIGTERM.
+    # Compose's default grace is 10, so without this it is killed mid-compile
+    # and leaves rows in `compile_results` stuck at `running` — the exact
+    # thing the drain exists to prevent.
+    stop_grace_period: 40s
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aeolus
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aeolus}
+      POSTGRES_DB: aeolus
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U aeolus -d aeolus']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    # quay.io, not Docker Hub: the minio/minio Docker Hub repository is gone.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-aeolus}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-aeolus-dev-secret}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Creates the bucket once and exits. The app does not create buckets: doing
+  # so needs a credential far broader than reading and writing objects.
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing "local/$$AEOLUS_S3_BUCKET" &&
+        echo "bucket $$AEOLUS_S3_BUCKET ready"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-aeolus}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-aeolus-dev-secret}
+      AEOLUS_S3_BUCKET: ${AEOLUS_S3_BUCKET:-aeolus}
+
+volumes:
+  postgres-data:
+  minio-data:
+  tectonic-cache:
+  caddy-data:
+  caddy-config:

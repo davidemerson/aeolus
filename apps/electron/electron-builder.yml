@@ -1,0 +1,47 @@
+appId: dev.aeolus.app
+productName: Aeolus
+directories:
+  output: release
+  # build/icon.png (1024 px, written by scripts/build-brand-assets.mjs from
+  # the same mark as the favicons) is the source electron-builder derives
+  # every platform's icon from. Without it, installers ship the stock
+  # Electron icon.
+  buildResources: build
+npmRebuild: false
+files:
+  - dist/**/*
+
+artifactName: '${productName}-${version}-${arch}.${ext}'
+
+mac:
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  identity: null
+  notarize: false
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # To enable Windows signing: add the pfx cert to GitHub secrets as
+  # CSC_LINK (base64 of .pfx) and CSC_KEY_PASSWORD. electron-builder
+  # picks them up automatically when set in the environment.
+
+linux:
+  executableName: aeolus
+  category: Office
+  target:
+    - target: AppImage
+      arch:
+        - x64
+
+# No update feed. electron-updater in main.ts is wired but dormant until a
+# build sets AEOLUS_UPDATES_HOST (ADR 0006, unsigned pilot).
+publish: null

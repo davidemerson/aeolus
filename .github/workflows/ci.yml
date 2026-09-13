@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Independent verify jobs run in parallel — a typecheck error no
+  # longer masks a lint error and wall-clock = max(...) instead of sum.
+  # Every job starts with .github/actions/setup-pnpm (checkout is the
+  # job's own), which owns the corepack-before-setup-node ordering the
+  # pnpm cache depends on; they share the cache keyed on pnpm-lock.yaml.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      - run: pnpm lint
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      - run: pnpm format:check
+
+  gates:
+    name: Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+
+      # Aeolus is a fork of an application built inside a company. This
+      # refuses to publish anything left over from that: internal hostnames,
+      # account identifiers, licensed fonts, colleagues' names. It is a gate,
+      # not advice — if it fires, remove the reference.
+      - name: No private references
+        run: pnpm check:refs
+
+      # Colour is not decoration. Every foreground/background pair the app
+      # actually paints has to clear WCAG AA, in both themes, and a palette
+      # change that quietly breaks one fails here instead of in front of a
+      # reader who cannot see it.
+      - name: Contrast
+        run: pnpm check:contrast
+
+      # The favicons and the link-preview card are committed, not built in CI.
+      # This proves they are still what the generator produces, so nobody can
+      # hand-edit one into something the next regeneration silently reverts.
+      - name: Brand assets are reproducible
+        run: pnpm check:brand
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      - run: pnpm typecheck
+
+      # A colour utility that resolves to nothing emits no CSS and no error —
+      # the element falls back to Tailwind preflight's `border-color:#e5e7eb`,
+      # so it renders a plausible WRONG colour rather than an obviously missing
+      # one (#69). Builds the CSS and asserts every colour class in the source
+      # appears as a selector in it, scanning the tailwind config's own content
+      # globs so packages/shared/src/ui is covered too.
+      - name: Dead Tailwind colour utilities
+        run: node scripts/check-dead-utilities.mjs
+        working-directory: apps/web
+
+  # Catches schema.ts ↔ migrations drift before it reaches main.
+  # Re-runs `drizzle-kit generate` in dry-form: if schema.ts already
+  # matches the latest snapshot in `packages/db/migrations/meta/`,
+  # the command exits with "No schema changes" and no files change.
+  # Anything else (a missing index declaration, a new column without
+  # a migration, a stale snapshot) shows up as a git diff and fails
+  # the job. </dev/null keeps drizzle-kit non-interactive — its
+  # rename-detection prompt would otherwise hang the runner.
+  db-drift:
+    name: DB schema drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      - name: drizzle-kit generate (should be a no-op)
+        working-directory: packages/db
+        run: pnpm exec drizzle-kit generate </dev/null
+      - name: fail if generate produced any diff
+        run: git diff --exit-code -- packages/db/migrations/
+
+  openapi-drift:
+    name: OpenAPI drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      # Boots the api and fetches /api/v1/openapi.json. No database needed —
+      # the pg Pool does not connect until a query runs, and serving the
+      # description runs none. Same property that lets db-drift run bare.
+      - name: regenerate the OpenAPI description
+        run: pnpm --silent --filter @aeolus/api run openapi:dump > docs/openapi.json
+      # Two jobs in one. It keeps the committed artifact honest, and it makes a
+      # wire-format change show up as a reviewable diff in the PR rather than
+      # something a reviewer has to infer from the route code.
+      - name: fail if the committed description is stale
+        run: git diff --exit-code -- docs/openapi.json
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+
+      # Tectonic + Typst pinned to the versions Dockerfile.worker
+      # bakes in. compile.latex / compile.typst / assets.upload
+      # require the binary at module load. The composite action
+      # caches the binaries across runs.
+      - name: Install tectonic + typst
+        uses: ./.github/actions/install-tectonic
+
+      - run: pnpm test
+
+  # E2E only runs after the test job is green to avoid burning a
+  # 25-minute Playwright slot on a unit-test regression.
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+
+      - name: Install tectonic + typst
+        uses: ./.github/actions/install-tectonic
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @aeolus/tests-e2e exec playwright install --with-deps chromium
+
+      - name: Run E2E
+        run: pnpm test:e2e
+
+      - name: Upload Playwright trace
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-trace
+          path: tests/e2e/test-results
+          if-no-files-found: ignore
