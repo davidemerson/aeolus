@@ -14,11 +14,9 @@ one port, no accounts anywhere but your own machine.
 
 ---
 
-Aeolus is deliberately smaller than Overleaf. There are no plan tiers, no
-public sharing, and no accounts on somebody else's server. An administrator
-creates the accounts, documents are shared with named people, and everything —
-the documents, the compiled PDFs, the passphrases — stays on the machine you
-put it on.
+Aeolus is a small self-hosted TeX productivity environment.
+
+An administrator creates the accounts, documents are shared with named people, and everything — the documents, the compiled PDFs, the passphrases — stays on the machine you put it on.
 
 What it does:
 
