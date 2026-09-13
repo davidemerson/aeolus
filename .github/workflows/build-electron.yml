@@ -1,0 +1,86 @@
+# Electron packaging workflow — builds unsigned installers for all platforms.
+#
+# GitHub secrets (all optional — the build succeeds when none are set):
+#   APPLE_ID                     — Apple ID for notarization
+#   APPLE_APP_SPECIFIC_PASSWORD  — app-specific password for notarization
+#   APPLE_TEAM_ID                — Apple Developer Team ID
+#   CSC_LINK                     — base64-encoded .p12 (macOS) or .pfx (Windows)
+#   CSC_KEY_PASSWORD             — password for the cert above
+#
+# Installers are the run's artifacts. There is no publish step: the
+# updates-bucket sync that used to sit at the end of this file ran
+# `aws s3 sync` with no AWS credentials configured, so it could never
+# have worked; wiring a real update feed is a feature (ADR 0006), not a
+# CI step. electron-updater in the app stays dormant until then.
+
+name: Build Electron
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+# The three-OS matrix is the most expensive job in the repo; a second push
+# to the same ref supersedes the first rather than running both.
+concurrency:
+  group: build-electron-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: mac
+          - os: windows-latest
+            target: win
+          - os: ubuntu-latest
+            target: linux
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+
+      - name: Build electron app
+        run: pnpm --filter @aeolus/electron run build:compile
+
+      - name: Configure Mac signing
+        if: matrix.target == 'mac' && env.APPLE_ID != ''
+        run: echo "CSC_IDENTITY_AUTO_DISCOVERY=true" >> "$GITHUB_ENV"
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+
+      - name: Disable Mac signing (unsigned pilot)
+        if: matrix.target == 'mac' && env.APPLE_ID == ''
+        run: echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+
+      # `--publish never`: electron-builder 26 auto-publishes when it detects
+      # CI and warns that v27 will drop the implicit behaviour. Publishing is
+      # the explicit step below, gated on a tag.
+      - name: Package
+        run: pnpm --filter @aeolus/electron exec electron-builder --${{ matrix.target }} --publish never
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: electron-${{ matrix.target }}-${{ github.sha }}
+          path: apps/electron/release/*.*
+          if-no-files-found: error

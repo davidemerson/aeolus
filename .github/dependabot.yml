@@ -1,0 +1,42 @@
+# Dependabot — keep the alert list at zero without a human remembering to.
+# Security updates open as soon as an advisory lands; version updates are
+# weekly and grouped so a normal week is one or two pull requests rather than
+# forty. CI is the gate: lint, typecheck, unit, integration, an end-to-end run
+# that renders a real PDF, and a full `docker compose up`. Merge the green
+# ones.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    groups:
+      # Majors stay separate so a breaking bump is its own PR.
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Electron majors are a release-engineering event (signing, updater,
+      # Chromium behaviour), not a Monday bump. Patch/minor still flow.
+      - dependency-name: electron
+        update-types: ['version-update:semver-major']
+    commit-message:
+      prefix: deps
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/New_York
+    # Ten, not the default five: action bumps arrive in bursts, and a low
+    # limit hides the later ones behind the earlier ones indefinitely.
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci

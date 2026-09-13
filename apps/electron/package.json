@@ -1,0 +1,32 @@
+{
+  "name": "@aeolus/electron",
+  "version": "0.0.1",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Aeolus — Electron shell",
+  "author": {
+    "name": "Aeolus"
+  },
+  "homepage": "https://github.com/davidemerson/aeolus",
+  "main": "dist/main.js",
+  "scripts": {
+    "build:compile": "tsc",
+    "build:linux": "pnpm run build:compile && electron-builder --linux",
+    "build:mac": "pnpm run build:compile && electron-builder --mac",
+    "build:win": "pnpm run build:compile && electron-builder --win",
+    "dev": "tsc && electron .",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "app-builder-bin": "5.0.0-alpha.10",
+    "electron": "39.8.10",
+    "electron-builder": "^26.15.3",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
+  },
+  "type": "module"
+}

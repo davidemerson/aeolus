@@ -1,0 +1,129 @@
+# syntax=docker/dockerfile:1
+################################################################
+# aeolus-api — Fastify REST API, the SPA, and the Claude proxy.
+# Built from the repo root: `docker build -f Dockerfile.api .`
+#
+# Three-stage shape:
+#   1. web-build  — full deps (incl vite + tooling) to compile the
+#                   apps/web SPA into static assets.
+#   2. prod-deps  — fresh install with --prod so devDeps (vitest,
+#                   typescript, eslint, drizzle-kit, electron…)
+#                   never reach the runtime image.
+#   3. runtime    — minimal node + tini, the trimmed deps tree, the
+#                   built SPA, and api source.
+#
+# Previously this Dockerfile ran the full install (no --prod) and
+# COPY'd /repo/node_modules verbatim into runtime, dragging the
+# entire dev tree into production.
+################################################################
+# Base images are pinned by digest (resolved 2026-09-13 from Docker Hub's
+# manifest list; the tag beside the digest is documentation). Tectonic and
+# Typst were already pinned by sha256; the base image is the larger surface.
+
+############################ web-build ########################
+FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 AS web-build
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
+RUN corepack enable
+WORKDIR /repo
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY tsconfig.base.json turbo.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/db/package.json packages/db/
+COPY packages/crdt/package.json packages/crdt/
+COPY packages/auth/package.json packages/auth/
+COPY packages/shared/package.json packages/shared/
+COPY apps/compile-worker/package.json apps/compile-worker/
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+    pnpm config set store-dir /pnpm-store && \
+    pnpm install --frozen-lockfile \
+        --filter @aeolus/web... \
+        --prod=false
+
+COPY packages/ packages/
+COPY apps/web/ apps/web/
+
+# No VITE_WS_URL build arg. The WebSocket URL used to be baked into the bundle
+# here, which meant the image only worked for the hostname it was built for.
+# The api now stamps it into the SPA shell at request time from AEOLUS_WS_URL
+# (apps/api/src/appearance.ts), so this image runs anywhere unchanged.
+# GIT_SHA feeds the SPA's version footer (`aeolus · rev <sha12>`,
+# minor-app standard 2026-07-02) via the __GIT_SHA__ vite define.
+# Passed by deploy-api.yml as the 12-hex short commit; deliberately
+# optional so local `docker build` still works (footer shows 'dev').
+ARG GIT_SHA
+ENV GIT_SHA=${GIT_SHA}
+RUN pnpm --filter @aeolus/web run build
+
+############################ prod-deps ########################
+FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 AS prod-deps
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
+RUN corepack enable
+WORKDIR /repo
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY tsconfig.base.json turbo.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY apps/compile-worker/package.json apps/compile-worker/
+COPY packages/db/package.json packages/db/
+COPY packages/crdt/package.json packages/crdt/
+COPY packages/auth/package.json packages/auth/
+COPY packages/shared/package.json packages/shared/
+
+# --prod drops every devDependency. tsx (the runtime entrypoint)
+# was moved to dependencies on apps/api so this layer keeps it.
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+    pnpm config set store-dir /pnpm-store && \
+    pnpm install --frozen-lockfile \
+        --filter @aeolus/api... \
+        --prod
+
+COPY packages/ packages/
+COPY apps/compile-worker/ apps/compile-worker/
+COPY apps/api/ apps/api/
+
+############################ runtime ##########################
+FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# No database CA bundle is baked in. A managed Postgres reached over a network
+# should be given one: mount your provider's root bundle into the container and
+# set AEOLUS_DB_CA_FILE to it, with AEOLUS_DB_SSL=verify. The bundled compose
+# stack keeps Postgres on a private network and sets AEOLUS_DB_SSL=disable.
+
+RUN useradd --system --create-home --home-dir /home/api --shell /usr/sbin/nologin api \
+    && mkdir -p /app && chown -R api:api /app
+
+WORKDIR /app
+COPY --from=prod-deps --chown=api:api /repo /app
+# SPA is a static asset on the api side; copy just the dist tree
+# rather than the build chain that produced it.
+COPY --from=web-build --chown=api:api /repo/apps/web/dist /app/apps/web/dist
+
+USER api
+# Nothing site-specific is baked in: the same image serves any hostname. Set
+# AEOLUS_PUBLIC_BASE_URL, AEOLUS_COOKIE_SECRET and the rest at run time — see
+# .env.example and the README's configuration table.
+#
+# AEOLUS_COOKIE_SECURE is deliberately NOT on by default. A Secure cookie is
+# never sent over plain http, so baking it in would break every install that
+# runs on a LAN address before it got as far as its first sign-in. Turn it on
+# (and you should) once the instance is behind https.
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=8080 \
+    PATH="/app/node_modules/.bin:/usr/local/bin:/usr/bin:/bin"
+
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/healthz').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
+
+WORKDIR /app/apps/api
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["tsx", "src/bin/server.ts"]

@@ -1,0 +1,28 @@
+{
+  "name": "@aeolus/tests-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@aeolus/api": "workspace:*",
+    "@aeolus/auth": "workspace:*",
+    "@aeolus/compile-worker": "workspace:*",
+    "@aeolus/crdt": "workspace:*",
+    "@aeolus/db": "workspace:*",
+    "@aeolus/ws": "workspace:*",
+    "@playwright/test": "^1.49.0",
+    "@testcontainers/postgresql": "^11.14.0",
+    "drizzle-orm": "^0.45.2",
+    "testcontainers": "^11.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "tsx": "^4.19.2"
+  }
+}

@@ -1,0 +1,24 @@
+name: Set up Node + pnpm
+description: >
+  The four-step preamble every CI job used to spell out: checkout is the
+  caller's, then corepack, setup-node with the pnpm cache, and a frozen
+  install. One place for the corepack-before-setup-node ordering that
+  `cache: 'pnpm'` depends on.
+
+runs:
+  using: composite
+  steps:
+    # corepack enable must run BEFORE setup-node so the `cache: 'pnpm'`
+    # resolution in setup-node can find pnpm. The opposite order fails
+    # with "Unable to locate executable file: pnpm" because setup-node
+    # invokes pnpm to compute the cache directory before any later step
+    # could install it.
+    - run: corepack enable
+      shell: bash
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: 'pnpm'
+        cache-dependency-path: pnpm-lock.yaml
+    - run: pnpm install --frozen-lockfile
+      shell: bash

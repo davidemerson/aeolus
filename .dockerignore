@@ -1,0 +1,92 @@
+# Anything that shouldn't be in the build context: what .gitignore ignores,
+# plus everything no Dockerfile reads (docs, tests, tooling). Not a mirror
+# of .gitignore — that file ignores generated output, this one also drops
+# committed files the images never need.
+
+# Node / TypeScript
+**/node_modules
+**/dist
+**/build
+**/.turbo
+**/*.tsbuildinfo
+
+# Tests
+coverage/
+**/coverage
+playwright-report/
+test-results/
+**/test-results
+.playwright/
+*.trace
+.stack-state.json
+tests/e2e/test-results
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+# The vendored RDS trust anchor is the one PEM the images need.
+*.key
+*.p12
+*.pfx
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Terraform
+infra/terraform/**/.terraform
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/crash.log
+infra/terraform/**/*.tfvars
+infra/terraform/**/.terraform.lock.hcl
+infra/terraform/**/plan.binary
+infra/terraform/**/backend.tf
+
+# Electron build artifacts
+apps/electron/dist-electron/
+apps/electron/release/
+
+# VCS / CI metadata — Dockerfiles never read these
+.git
+.github
+.gitignore
+.gitattributes
+
+# Local agent state
+.claude
+.cursor
+
+# Docs, tests, tooling and brand source — never read by a Dockerfile.
+# Kept out of the context to cut upload time and BuildKit cache-key churn
+# (a test edit used to invalidate nothing but still re-hash the context).
+docs/
+README.md
+tests/
+fonts/
+logos/
+infra/
+scripts/
+.editorconfig
+.prettierrc.json
+.prettierignore
+eslint.config.mjs
+.nvmrc
+.git-blame-ignore-revs
+
+# Don't ship the Dockerfiles themselves into the image
+Dockerfile.*
+.dockerignore

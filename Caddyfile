@@ -1,0 +1,41 @@
+# One origin in front of both web-facing processes.
+#
+# This is the piece that makes the session cookie work. The browser gets a
+# cookie from one host; the WebSocket connection has to go to that same host or
+# the browser will not send it, and an unauthenticated upgrade means the editor
+# connects, appears to work, and saves nothing. So: /ws goes to the ws process,
+# everything else goes to the api, and both are the same origin as far as the
+# browser is concerned.
+#
+# AEOLUS_SITE_ADDRESS is set by docker-compose.yml. It defaults to `:8080`,
+# which serves plain http on port 8080 — right for a laptop, wrong for anything
+# on a network. Put a real hostname there (aeolus.example.com) and publish
+# ports 80 and 443 instead, and Caddy gets a certificate from Let's Encrypt on
+# its own, renews it, and redirects http to https. Then set
+# AEOLUS_COOKIE_SECURE=1 so the session cookie stops travelling in the clear.
+
+{$AEOLUS_SITE_ADDRESS} {
+	encode zstd gzip
+
+	# The collaborative editing socket. handle_path strips the /ws prefix, so
+	# the ws process sees the paths it expects.
+	handle_path /ws* {
+		reverse_proxy ws:8080
+	}
+
+	# Everything else: the API under /api, and the single-page app at
+	# everything else, both served by the api process.
+	handle {
+		reverse_proxy api:8080
+	}
+
+	# Caddy sets X-Forwarded-For itself, appending the immediate peer rather
+	# than trusting what arrived. The api is told to believe it via
+	# AEOLUS_TRUST_PROXY, which is what makes the sign-in rate limit count
+	# real clients instead of counting Caddy.
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -1,0 +1,509 @@
+/* Aeolus design tokens — the canonical CSS custom properties.
+ *
+ * Every colour the app uses resolves to one of these. Change a hue here and it
+ * changes everywhere, in both polarities, without touching a utility class.
+ * scripts/check-contrast.mjs holds the accessible pairs to WCAG AA.
+ *
+ * Dual-theme. The three blocks below must stay in this order and every custom
+ * property must keep its definition on the bare :root — a token defined ONLY inside a media
+ * or attribute block resolves to nothing in the other theme.
+ *
+ *   1. :root                                     the light palette, always
+ *   2. @media (prefers-color-scheme: dark)       auto-follows the OS…
+ *      :root:not([data-theme="light"])           …unless the user chose light
+ *   3. :root[data-theme="dark"]                  an explicit choice wins
+ *
+ * Block 3 is not redundant with block 2. Without it, a user who picks light
+ * on a dark-OS machine still gets dark, and a user who picks dark on a
+ * light-OS machine gets nothing at all.
+ */
+:root {
+  color-scheme: light;
+
+  /* Native controls — checkboxes, radios, range, progress — paint with the
+   * UA accent, which is blue. Nothing ever set this, so every checkbox in
+   * every minor app has been off-palette in BOTH themes, quietly violating
+   * the no-blue-accents rule the guidelines state. accent-color is the only
+   * way to reach them without rebuilding the control. */
+  accent-color: var(--control-accent);
+
+  --bg: #f5f5f4;
+  --card: #ffffff;
+  --raised: #ffffff;
+  --line: #e7e5e4;
+  --line2: #d6d3d1;
+  --fill-paper: #faf9f7;
+  --fill-hover: #faf7f2;
+  --fill-warm: #f5efe7;
+  --fill-accent: #e8f8f7;
+  --ink: #1c1917;
+  --ink2: #44403c;
+  --muted: #6d6661;
+  --placeholder: #766e68;
+  --accent: #17a2a4;
+  --accent-strong: #0f8489;
+  --accent-text: #0c6d73;
+  --focus: #0f8489;
+  --control-accent: #0f8489;
+  --foreign-tile: #f5efe7;
+  --paper-edge: #d6d3d1;
+  --focus-ring: rgba(23,162,164,.45);
+  --eyebrow-hot: #11454b;
+  --destructive: #b91c1c;
+  --btn-primary-bg: #1c1917;
+  --btn-primary-fg: #f5f5f4;
+  --btn-primary-hover-bg: #44403c;
+  --btn-primary-active-bg: #0c0a09;
+  --btn-danger-bg: #b91c1c;
+  --btn-danger-fg: #f5f5f4;
+  --btn-danger-hover-bg: #991b1b;
+  --btn-danger-border: #b91c1c;
+  --inverse-bg: #1c1917;
+  --inverse-fg: #f5f5f4;
+  --inverse-border: #78716c;
+  --inverse-hover-bg: #44403c;
+  --shadow-card: 0 1px 2px rgba(28,25,23,.04);
+  --shadow-soft-lift: 0 1px 0 rgba(28,25,23,.04), 0 1px 2px rgba(28,25,23,.04);
+  --shadow-soft-hover: 0 1px 0 rgba(28,25,23,.06), 0 4px 12px rgba(28,25,23,.06);
+  --shadow-menu: 0 8px 24px rgba(28,25,23,.14);
+  --shadow-dialog: 0 12px 40px rgba(28,25,23,.18);
+  --shadow-cell-reveal: 0 1px 6px rgba(28,25,23,.14);
+  --backdrop: rgba(28,25,23,.35);
+  --success-fg: #15803d;
+  --success-fg-strong: #166534;
+  --success-bg: #dcfce7;
+  --success-bg-soft: #d9f2e6;
+  --success-bg-alt: #f0fdf4;
+  --success-border: #bbf7d0;
+  --success-edge: #86efac;
+  --danger-fg: #b91c1c;
+  --danger-fg-strong: #991b1b;
+  --danger-bg: #fee2e2;
+  --danger-bg-strong: #fecaca;
+  --danger-bg-alt: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-edge: #b91c1c;
+  --warning-fg: #b45309;
+  --warning-fg-strong: #92400e;
+  --warning-bg: #fef3c7;
+  --warning-bg-alt: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-edge: #b45309;
+  --notice-fg: #9a3412;
+  --notice-fg-strong: #9a3412;
+  --notice-bg: #ffedd5;
+  --notice-bg-alt: #fff7ed;
+  --notice-border: #fed7aa;
+  --notice-edge: #9a3412;
+  --info-fg: #075985;
+  --info-fg-strong: #075985;
+  --info-bg: #e0f2fe;
+  --info-bg-alt: #f0f9ff;
+  --info-border: #bae6fd;
+  --info-edge: #075985;
+  --neutral-fg: #6d6661;
+  --neutral-fg-strong: #44403c;
+  --neutral-bg: #f5f5f4;
+  --neutral-bg-alt: #f5efe7;
+  --neutral-border: #d6d3d1;
+  --neutral-edge: #d6d3d1;
+  --accent-fg: #0c6d73;
+  --accent-fg-strong: #11454b;
+  --accent-bg: #e8f8f7;
+  --accent-bg-alt: #f3fcfb;
+  --accent-border: #a8e5e3;
+  --accent-edge: #17a2a4;
+  --sev-critical-bg: #fecaca;
+  --sev-critical-fg: #991b1b;
+  --sev-high-bg: #fee2e2;
+  --sev-high-fg: #b91c1c;
+  --sev-medium-bg: #fef3c7;
+  --sev-medium-fg: #92400e;
+  --sev-low-bg: #e7e5e4;
+  --sev-low-fg: #44403c;
+  --sev-info-bg: #e0f2fe;
+  --sev-info-fg: #075985;
+  --grade-a-bg: #dcfce7;
+  --grade-a-fg: #166534;
+  --grade-b-bg: #d9f2e6;
+  --grade-b-fg: #166534;
+  --grade-c-bg: #fef3c7;
+  --grade-c-fg: #92400e;
+  --grade-d-bg: #ffedd5;
+  --grade-d-fg: #9a3412;
+  --grade-e-bg: #fee2e2;
+  --grade-e-fg: #b91c1c;
+  --grade-f-bg: #fecaca;
+  --grade-f-fg: #991b1b;
+  --grade-na-bg: #f5f5f4;
+  --grade-na-fg: #6d6661;
+
+  /* type — not themed */
+  --sans: 'Jost', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* --accent-d is the older name for --accent-strong. The old name says
+   * "darker", which is true in light and false in dark — which is why it was
+   * renamed. Kept as an alias so nothing breaks. */
+  --accent-d: var(--accent-strong);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0c0a09;
+    --card: #1c1917;
+    --raised: #292524;
+    --line: #35302d;
+    --line2: #57534e;
+    --fill-paper: #141110;
+    --fill-hover: #252121;
+    --fill-warm: #2a2422;
+    --fill-accent: #0f2e2e;
+    --ink: #f5f5f4;
+    --ink2: #d6d3d1;
+    --muted: #a8a29e;
+    --placeholder: #8a8580;
+    --accent: #31b8b8;
+    --accent-strong: #6fd3d1;
+    --accent-text: #6fd3d1;
+    --focus: #31b8b8;
+    --control-accent: #31b8b8;
+    --foreign-tile: #ffffff;
+    --paper-edge: transparent;
+    --focus-ring: rgba(49,184,184,.40);
+    --eyebrow-hot: #6fd3d1;
+    --destructive: #f87171;
+    --btn-primary-bg: #f5f5f4;
+    --btn-primary-fg: #1c1917;
+    --btn-primary-hover-bg: #d6d3d1;
+    --btn-primary-active-bg: #ffffff;
+    --btn-danger-bg: #991b1b;
+    --btn-danger-fg: #f5f5f4;
+    --btn-danger-hover-bg: #b91c1c;
+    --btn-danger-border: #dc2626;
+    --inverse-bg: #3a3532;
+    --inverse-fg: #f5f5f4;
+    --inverse-border: #8a837d;
+    --inverse-hover-bg: #4a4441;
+    --shadow-card: 0 1px 2px rgba(0,0,0,.40);
+    --shadow-soft-lift: 0 1px 0 rgba(0,0,0,.30), 0 1px 2px rgba(0,0,0,.40);
+    --shadow-soft-hover: 0 1px 0 rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.45);
+    --shadow-menu: 0 8px 24px rgba(0,0,0,.55);
+    --shadow-dialog: 0 12px 40px rgba(0,0,0,.65);
+    --shadow-cell-reveal: 0 1px 6px rgba(0,0,0,.50);
+    --backdrop: rgba(0,0,0,.60);
+    --success-fg: #86efac;
+    --success-fg-strong: #bbf7d0;
+    --success-bg: #12261a;
+    --success-bg-soft: #122622;
+    --success-bg-alt: #101f16;
+    --success-border: #1e4429;
+    --success-edge: #4ade80;
+    --danger-fg: #fca5a5;
+    --danger-fg-strong: #fecaca;
+    --danger-bg: #2a1315;
+    --danger-bg-strong: #4c1d1d;
+    --danger-bg-alt: #1f0f11;
+    --danger-border: #5b1f1f;
+    --danger-edge: #f87171;
+    --warning-fg: #fcd34d;
+    --warning-fg-strong: #fde68a;
+    --warning-bg: #2a1f08;
+    --warning-bg-alt: #201907;
+    --warning-border: #4a3410;
+    --warning-edge: #fbbf24;
+    --notice-fg: #fdba74;
+    --notice-fg-strong: #fed7aa;
+    --notice-bg: #2b1a0c;
+    --notice-bg-alt: #221408;
+    --notice-border: #4a2c12;
+    --notice-edge: #fb923c;
+    --info-fg: #7dd3fc;
+    --info-fg-strong: #bae6fd;
+    --info-bg: #0c2431;
+    --info-bg-alt: #0a1d27;
+    --info-border: #164e63;
+    --info-edge: #38bdf8;
+    --neutral-fg: #a8a29e;
+    --neutral-fg-strong: #d6d3d1;
+    --neutral-bg: #2a2422;
+    --neutral-bg-alt: #292524;
+    --neutral-border: #57534e;
+    --neutral-edge: #57534e;
+    --accent-fg: #6fd3d1;
+    --accent-fg-strong: #a8e5e3;
+    --accent-bg: #0f2e2e;
+    --accent-bg-alt: #0c2624;
+    --accent-border: #1c5453;
+    --accent-edge: #31b8b8;
+    --sev-critical-bg: #4c1d1d;
+    --sev-critical-fg: #fecaca;
+    --sev-high-bg: #3b1717;
+    --sev-high-fg: #fca5a5;
+    --sev-medium-bg: #3a2c0b;
+    --sev-medium-fg: #fcd34d;
+    --sev-low-bg: #292524;
+    --sev-low-fg: #d6d3d1;
+    --sev-info-bg: #0c2431;
+    --sev-info-fg: #7dd3fc;
+    --grade-a-bg: #12261a;
+    --grade-a-fg: #86efac;
+    --grade-b-bg: #122622;
+    --grade-b-fg: #a7f3d0;
+    --grade-c-bg: #2a1f08;
+    --grade-c-fg: #fcd34d;
+    --grade-d-bg: #2b1a0c;
+    --grade-d-fg: #fdba74;
+    --grade-e-bg: #2a1315;
+    --grade-e-fg: #fca5a5;
+    --grade-f-bg: #4c1d1d;
+    --grade-f-fg: #fecaca;
+    --grade-na-bg: #2a2422;
+    --grade-na-fg: #a8a29e;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0c0a09;
+  --card: #1c1917;
+  --raised: #292524;
+  --line: #35302d;
+  --line2: #57534e;
+  --fill-paper: #141110;
+  --fill-hover: #252121;
+  --fill-warm: #2a2422;
+  --fill-accent: #0f2e2e;
+  --ink: #f5f5f4;
+  --ink2: #d6d3d1;
+  --muted: #a8a29e;
+  --placeholder: #8a8580;
+  --accent: #31b8b8;
+  --accent-strong: #6fd3d1;
+  --accent-text: #6fd3d1;
+  --focus: #31b8b8;
+  --control-accent: #31b8b8;
+  --foreign-tile: #ffffff;
+  --paper-edge: transparent;
+  --focus-ring: rgba(49,184,184,.40);
+  --eyebrow-hot: #6fd3d1;
+  --destructive: #f87171;
+  --btn-primary-bg: #f5f5f4;
+  --btn-primary-fg: #1c1917;
+  --btn-primary-hover-bg: #d6d3d1;
+  --btn-primary-active-bg: #ffffff;
+  --btn-danger-bg: #991b1b;
+  --btn-danger-fg: #f5f5f4;
+  --btn-danger-hover-bg: #b91c1c;
+  --btn-danger-border: #dc2626;
+  --inverse-bg: #3a3532;
+  --inverse-fg: #f5f5f4;
+  --inverse-border: #8a837d;
+  --inverse-hover-bg: #4a4441;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.40);
+  --shadow-soft-lift: 0 1px 0 rgba(0,0,0,.30), 0 1px 2px rgba(0,0,0,.40);
+  --shadow-soft-hover: 0 1px 0 rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.45);
+  --shadow-menu: 0 8px 24px rgba(0,0,0,.55);
+  --shadow-dialog: 0 12px 40px rgba(0,0,0,.65);
+  --shadow-cell-reveal: 0 1px 6px rgba(0,0,0,.50);
+  --backdrop: rgba(0,0,0,.60);
+  --success-fg: #86efac;
+  --success-fg-strong: #bbf7d0;
+  --success-bg: #12261a;
+  --success-bg-soft: #122622;
+  --success-bg-alt: #101f16;
+  --success-border: #1e4429;
+  --success-edge: #4ade80;
+  --danger-fg: #fca5a5;
+  --danger-fg-strong: #fecaca;
+  --danger-bg: #2a1315;
+  --danger-bg-strong: #4c1d1d;
+  --danger-bg-alt: #1f0f11;
+  --danger-border: #5b1f1f;
+  --danger-edge: #f87171;
+  --warning-fg: #fcd34d;
+  --warning-fg-strong: #fde68a;
+  --warning-bg: #2a1f08;
+  --warning-bg-alt: #201907;
+  --warning-border: #4a3410;
+  --warning-edge: #fbbf24;
+  --notice-fg: #fdba74;
+  --notice-fg-strong: #fed7aa;
+  --notice-bg: #2b1a0c;
+  --notice-bg-alt: #221408;
+  --notice-border: #4a2c12;
+  --notice-edge: #fb923c;
+  --info-fg: #7dd3fc;
+  --info-fg-strong: #bae6fd;
+  --info-bg: #0c2431;
+  --info-bg-alt: #0a1d27;
+  --info-border: #164e63;
+  --info-edge: #38bdf8;
+  --neutral-fg: #a8a29e;
+  --neutral-fg-strong: #d6d3d1;
+  --neutral-bg: #2a2422;
+  --neutral-bg-alt: #292524;
+  --neutral-border: #57534e;
+  --neutral-edge: #57534e;
+  --accent-fg: #6fd3d1;
+  --accent-fg-strong: #a8e5e3;
+  --accent-bg: #0f2e2e;
+  --accent-bg-alt: #0c2624;
+  --accent-border: #1c5453;
+  --accent-edge: #31b8b8;
+  --sev-critical-bg: #4c1d1d;
+  --sev-critical-fg: #fecaca;
+  --sev-high-bg: #3b1717;
+  --sev-high-fg: #fca5a5;
+  --sev-medium-bg: #3a2c0b;
+  --sev-medium-fg: #fcd34d;
+  --sev-low-bg: #292524;
+  --sev-low-fg: #d6d3d1;
+  --sev-info-bg: #0c2431;
+  --sev-info-fg: #7dd3fc;
+  --grade-a-bg: #12261a;
+  --grade-a-fg: #86efac;
+  --grade-b-bg: #122622;
+  --grade-b-fg: #a7f3d0;
+  --grade-c-bg: #2a1f08;
+  --grade-c-fg: #fcd34d;
+  --grade-d-bg: #2b1a0c;
+  --grade-d-fg: #fdba74;
+  --grade-e-bg: #2a1315;
+  --grade-e-fg: #fca5a5;
+  --grade-f-bg: #4c1d1d;
+  --grade-f-fg: #fecaca;
+  --grade-na-bg: #2a2422;
+  --grade-na-fg: #a8a29e;
+}
+
+/* Printing is always light. A dark screen must never produce a dark page.
+ * This is about the browser's own print path; a compiled document's colours
+ * come from its own source, not from here.
+ *
+ * The doubled selectors are load-bearing, not a typo. `prefers-color-scheme`
+ * still evaluates under print media, so block 2 above is live while printing
+ * and its selector — :root:not([data-theme="light"]) — outranks a plain
+ * :root. Written the obvious way, this block loses and a dark screen prints
+ * dark. :root:root and :root:root[data-theme="dark"] outrank both dark
+ * blocks on specificity alone, so it holds regardless of source order. */
+@media print {
+  :root:root,
+  :root:root[data-theme="dark"] {
+    color-scheme: light;
+
+    --bg: #f5f5f4;
+    --card: #ffffff;
+    --raised: #ffffff;
+    --line: #e7e5e4;
+    --line2: #d6d3d1;
+    --fill-paper: #faf9f7;
+    --fill-hover: #faf7f2;
+    --fill-warm: #f5efe7;
+    --fill-accent: #e8f8f7;
+    --ink: #1c1917;
+    --ink2: #44403c;
+    --muted: #6d6661;
+    --placeholder: #766e68;
+    --accent: #17a2a4;
+    --accent-strong: #0f8489;
+    --accent-text: #0c6d73;
+    --focus: #0f8489;
+    --control-accent: #0f8489;
+    --foreign-tile: #f5efe7;
+    --paper-edge: #d6d3d1;
+    --focus-ring: rgba(23,162,164,.45);
+    --eyebrow-hot: #11454b;
+    --destructive: #b91c1c;
+    --btn-primary-bg: #1c1917;
+    --btn-primary-fg: #f5f5f4;
+    --btn-primary-hover-bg: #44403c;
+    --btn-primary-active-bg: #0c0a09;
+    --btn-danger-bg: #b91c1c;
+    --btn-danger-fg: #f5f5f4;
+    --btn-danger-hover-bg: #991b1b;
+    --btn-danger-border: #b91c1c;
+    --inverse-bg: #1c1917;
+    --inverse-fg: #f5f5f4;
+    --inverse-border: #78716c;
+    --inverse-hover-bg: #44403c;
+    --shadow-card: 0 1px 2px rgba(28,25,23,.04);
+    --shadow-soft-lift: 0 1px 0 rgba(28,25,23,.04), 0 1px 2px rgba(28,25,23,.04);
+    --shadow-soft-hover: 0 1px 0 rgba(28,25,23,.06), 0 4px 12px rgba(28,25,23,.06);
+    --shadow-menu: 0 8px 24px rgba(28,25,23,.14);
+    --shadow-dialog: 0 12px 40px rgba(28,25,23,.18);
+    --shadow-cell-reveal: 0 1px 6px rgba(28,25,23,.14);
+    --backdrop: rgba(28,25,23,.35);
+    --success-fg: #15803d;
+    --success-fg-strong: #166534;
+    --success-bg: #dcfce7;
+    --success-bg-soft: #d9f2e6;
+    --success-bg-alt: #f0fdf4;
+    --success-border: #bbf7d0;
+    --success-edge: #86efac;
+    --danger-fg: #b91c1c;
+    --danger-fg-strong: #991b1b;
+    --danger-bg: #fee2e2;
+    --danger-bg-strong: #fecaca;
+    --danger-bg-alt: #fef2f2;
+    --danger-border: #fecaca;
+    --danger-edge: #b91c1c;
+    --warning-fg: #b45309;
+    --warning-fg-strong: #92400e;
+    --warning-bg: #fef3c7;
+    --warning-bg-alt: #fffbeb;
+    --warning-border: #fde68a;
+    --warning-edge: #b45309;
+    --notice-fg: #9a3412;
+    --notice-fg-strong: #9a3412;
+    --notice-bg: #ffedd5;
+    --notice-bg-alt: #fff7ed;
+    --notice-border: #fed7aa;
+    --notice-edge: #9a3412;
+    --info-fg: #075985;
+    --info-fg-strong: #075985;
+    --info-bg: #e0f2fe;
+    --info-bg-alt: #f0f9ff;
+    --info-border: #bae6fd;
+    --info-edge: #075985;
+    --neutral-fg: #6d6661;
+    --neutral-fg-strong: #44403c;
+    --neutral-bg: #f5f5f4;
+    --neutral-bg-alt: #f5efe7;
+    --neutral-border: #d6d3d1;
+    --neutral-edge: #d6d3d1;
+    --accent-fg: #0c6d73;
+    --accent-fg-strong: #11454b;
+    --accent-bg: #e8f8f7;
+    --accent-bg-alt: #f3fcfb;
+    --accent-border: #a8e5e3;
+    --accent-edge: #17a2a4;
+    --sev-critical-bg: #fecaca;
+    --sev-critical-fg: #991b1b;
+    --sev-high-bg: #fee2e2;
+    --sev-high-fg: #b91c1c;
+    --sev-medium-bg: #fef3c7;
+    --sev-medium-fg: #92400e;
+    --sev-low-bg: #e7e5e4;
+    --sev-low-fg: #44403c;
+    --sev-info-bg: #e0f2fe;
+    --sev-info-fg: #075985;
+    --grade-a-bg: #dcfce7;
+    --grade-a-fg: #166534;
+    --grade-b-bg: #d9f2e6;
+    --grade-b-fg: #166534;
+    --grade-c-bg: #fef3c7;
+    --grade-c-fg: #92400e;
+    --grade-d-bg: #ffedd5;
+    --grade-d-fg: #9a3412;
+    --grade-e-bg: #fee2e2;
+    --grade-e-fg: #b91c1c;
+    --grade-f-bg: #fecaca;
+    --grade-f-fg: #991b1b;
+    --grade-na-bg: #f5f5f4;
+    --grade-na-fg: #6d6661;
+  }
+}

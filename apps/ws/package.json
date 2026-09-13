@@ -1,0 +1,36 @@
+{
+  "name": "@aeolus/ws",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/bin/server.ts",
+    "start": "tsx src/bin/server.ts",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@aeolus/auth": "workspace:*",
+    "@aeolus/crdt": "workspace:*",
+    "@aeolus/db": "workspace:*",
+    "@fastify/cookie": "^11.0.2",
+    "drizzle-orm": "^0.45.2",
+    "lib0": "^0.2.99",
+    "pg": "^8.20.0",
+    "pino": "^10.3.1",
+    "tsx": "^4.19.2",
+    "ws": "^8.21.3",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.21"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.12"
+  }
+}

@@ -1,0 +1,129 @@
+name: Docker
+
+# Proves the thing the README promises: that `docker compose up` on a machine
+# with nothing but Docker gives you a working Aeolus.
+#
+# It is not a build check. It builds all three images, starts the whole stack,
+# reads the generated passphrase out of the api's log exactly as a person
+# would, signs in with it, is made to choose a real one, writes a document,
+# compiles it with Typst, downloads the PDF, and opens a second browser session
+# to confirm the edit arrived over the websocket. If any of that stops working,
+# the install instructions are wrong and this fails.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    name: docker compose up
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      # Layer cache across runs. A cold build of the worker image is ~10
+      # minutes: it compiles the Landlock helper and pulls Tectonic and Typst.
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Write .env exactly as the README says to
+        run: |
+          cp .env.example .env
+          # The one value with no default. `openssl rand -base64 48` is what
+          # the file tells a person to run.
+          printf 'AEOLUS_COOKIE_SECRET=%s\n' "$(openssl rand -base64 48)" >> .env
+
+      - name: Build the images
+        run: docker compose build --progress plain
+
+      - name: Start the stack
+        run: docker compose up -d
+
+      - name: Wait for it to answer
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:8080/healthz >/dev/null 2>&1; then
+              echo "up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "never became healthy" >&2
+          docker compose ps
+          docker compose logs --tail 200
+          exit 1
+
+      # Every process has to have started, not just the one behind the port.
+      # A worker that exited leaves compiles queued forever and the app looks
+      # fine until someone presses save.
+      - name: Every service is still running
+        run: |
+          set -e
+          for service in caddy api ws worker postgres minio; do
+            state=$(docker compose ps --format '{{.Service}} {{.State}}' | awk -v s="$service" '$1==s {print $2}')
+            echo "$service: ${state:-missing}"
+            [ "$state" = "running" ] || { docker compose logs "$service"; exit 1; }
+          done
+
+      # The sandbox is in audit mode by default, and its boot line is what
+      # tells an operator whether they can turn on enforce. If the line is
+      # missing the worker is not confining anything and not saying so.
+      - name: The worker reported its sandbox state
+        run: docker compose logs worker | grep -E 'sandbox mode=(audit|enforce)'
+
+      - uses: ./.github/actions/setup-pnpm
+
+      - name: Install Playwright chromium
+        run: pnpm --filter @aeolus/tests-e2e exec playwright install --with-deps chromium
+
+      - name: Drive a first run through the browser
+        run: node scripts/compose-smoke.mjs
+        env:
+          AEOLUS_BASE_URL: http://localhost:8080
+
+      # The README tells people how to back up. An untested backup command is
+      # worse than none, so both halves run here against the live stack and
+      # the output is checked for the tables and objects that must be in it.
+      - name: The backup commands in the README actually work
+        run: |
+          set -euo pipefail
+          docker compose exec -T postgres pg_dump -U aeolus aeolus | gzip > /tmp/aeolus-db.sql.gz
+          gzip -dc /tmp/aeolus-db.sql.gz | grep -q 'CREATE TABLE public.users'
+          gzip -dc /tmp/aeolus-db.sql.gz | grep -q 'CREATE TABLE public.docs'
+          echo "database dump: $(stat -c%s /tmp/aeolus-db.sql.gz) bytes"
+
+          mkdir -p /tmp/aeolus-blobs
+          docker compose run --rm --entrypoint sh \
+            -v /tmp/aeolus-blobs:/backup minio-init -c \
+            'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" &&
+             mc mirror --overwrite local/aeolus /backup'
+          # The smoke test wrote a document and compiled it, so the bucket is
+          # not empty; an empty mirror would mean the two halves disagree
+          # about where the objects are.
+          test "$(find /tmp/aeolus-blobs -type f | wc -l)" -gt 0
+          echo "object store: $(find /tmp/aeolus-blobs -type f | wc -l) objects"
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail 400
+
+      - name: Upload the smoke test's screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-smoke
+          path: .compose-smoke/
+          if-no-files-found: ignore
+
+      - name: Stop
+        if: always()
+        run: docker compose down -v

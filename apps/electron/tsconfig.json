@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // The main process runs as ESM under Electron's Node (package.json
+    // "type": "module"); NodeNext keeps the base's verbatimModuleSyntax
+    // valid and requires the .js extension on local imports.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
+}
