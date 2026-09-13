@@ -33,7 +33,7 @@ jobs:
 
       # Layer cache across runs. A cold build of the worker image is ~10
       # minutes: it compiles the Landlock helper and pulls Tectonic and Typst.
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Write .env exactly as the README says to
         run: |
