@@ -17,7 +17,7 @@
     "@aeolus/db": "workspace:*",
     "@aeolus/ws": "workspace:*",
     "@fastify/cookie": "^11.0.2",
-    "@testcontainers/postgresql": "^11.14.0",
+    "@testcontainers/postgresql": "^12.1.0",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.4",
     "lib0": "^0.2.99",
