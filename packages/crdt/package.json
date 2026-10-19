@@ -15,11 +15,11 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1030.0",
+    "@aws-sdk/client-s3": "^3.1152.0",
     "@aeolus/db": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "lib0": "^0.2.99",
+    "drizzle-orm": "^0.45.4",
+    "lib0": "^0.2.119",
     "y-protocols": "^1.0.6",
-    "yjs": "^13.6.21"
+    "yjs": "^13.6.33"
   }
 }
