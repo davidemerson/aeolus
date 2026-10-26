@@ -16,13 +16,13 @@
     "@aeolus/crdt": "workspace:*",
     "@aeolus/db": "workspace:*",
     "@aeolus/ws": "workspace:*",
-    "@playwright/test": "^1.49.0",
+    "@playwright/test": "^1.64.1",
     "@testcontainers/postgresql": "^11.14.0",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "^0.45.4",
     "testcontainers": "^11.14.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.17",
-    "tsx": "^4.19.2"
+    "tsx": "^4.23.15"
   }
 }
